@@ -1087,6 +1087,48 @@ FileCopyCallback(PVOID Context,
     return FILEOP_DOIT;
 }
 
+static VOID
+__cdecl
+RegistryStatus(IN REGISTRY_STATUS RegStatus, ...)
+{
+    /* WARNING: Please keep this lookup table in sync with the resources! */
+    static const PCWSTR /*UINT*/ StringIDs[] =
+    {
+        L"Done",                                    // STRING_DONE,                    /* Success */
+        L"Updating registry hives",                 // STRING_REGHIVEUPDATE,           /* RegHiveUpdate */
+        L"Importing %s",                            // STRING_IMPORTFILE,              /* ImportRegHive */
+        L"Updating display registry settings",      // STRING_DISPLAYSETTINGSUPDATE,   /* DisplaySettingsUpdate */
+        L"Updating locale settings",                // STRING_LOCALESETTINGSUPDATE,    /* LocaleSettingsUpdate */
+        L"Adding keyboard layouts",                 // STRING_ADDKBLAYOUTS,            /* KeybLayouts */
+        L"Updating keyboard layout settings",       // STRING_KEYBOARDSETTINGSUPDATE,  /* KeybSettingsUpdate */
+        L"Adding codepage information to registry", // STRING_CODEPAGEINFOUPDATE,      /* CodePageInfoUpdate */
+    };
+
+    va_list args;
+    WCHAR Buffer[MAX_PATH];
+
+    if (RegStatus < ARRAYSIZE(StringIDs))
+    {
+        va_start(args, RegStatus);
+
+        StringCchVPrintfW(Buffer, ARRAYSIZE(Buffer),
+                          StringIDs[RegStatus], args);
+        // SetDlgItemTextW(UiContext.hwndDlg, IDC_ITEM, Buffer);
+        SetWindowTextW(UiContext.hWndItem, Buffer);
+
+        va_end(args);
+    }
+    else
+    {
+        StringCchPrintfW(Buffer, ARRAYSIZE(Buffer),
+                         L"Unknown status %d", RegStatus);
+        // SetDlgItemTextW(UiContext.hwndDlg, IDC_ITEM, Buffer);
+        SetWindowTextW(UiContext.hWndItem, Buffer);
+    }
+
+    SendMessageW(UiContext.hWndProgress, PBM_STEPIT, 0, 0);
+}
+
 static DWORD
 WINAPI
 PrepareAndDoCopyThread(
@@ -1096,7 +1138,7 @@ PrepareAndDoCopyThread(
     HWND hwndDlg = (HWND)Param;
     HWND hWndProgress;
     LONG_PTR dwStyle;
-    // ERROR_NUMBER ErrorNumber;
+    ERROR_NUMBER ErrorNumber;
     BOOLEAN Success;
     COPYCONTEXT CopyContext;
 
@@ -1186,6 +1228,38 @@ PrepareAndDoCopyThread(
 
     /* Create the $winnt$.inf file */
     InstallSetupInfFile(&pSetupData->USetupData);
+
+
+    /*
+     * Create or update the registry hives
+     */
+
+    /* Set status text */
+    SetDlgItemTextW(hwndDlg, IDC_ACTIVITY,
+                    pSetupData->RepairUpdateFlag
+                        ? L"Updating the registry..."
+                        : L"Creating the registry...");
+    SetDlgItemTextW(hwndDlg, IDC_ITEM, L"");
+
+    /* Set up the progress bar */
+    SendMessageW(hWndProgress,
+                 PBM_SETRANGE, 0,
+                 MAKELPARAM(0, 8)); // FIXME: hardcoded number of steps, see StringIDs[] array in RegistryStatus()
+    SendMessageW(hWndProgress,
+                 PBM_SETSTEP, 1, 0);
+    SendMessageW(hWndProgress,
+                 PBM_SETPOS, 0, 0);
+
+    ErrorNumber = UpdateRegistry(&pSetupData->USetupData,
+                                 pSetupData->RepairUpdateFlag,
+                                 pSetupData->PartitionList,
+                                 L'D', // DestinationDriveLetter,   // FIXME!!
+                                 pSetupData->SelectedLanguageId,
+                                 RegistryStatus,
+                                 NULL /* SubstSettings */);
+    UNREFERENCED_PARAMETER(ErrorNumber);
+    SendMessageW(UiContext.hWndProgress, PBM_SETPOS, 100, 0);
+
 
     /* We are done! Switch to the Terminate page */
     PropSheet_SetCurSelByID(GetParent(hwndDlg), IDD_RESTARTPAGE);
