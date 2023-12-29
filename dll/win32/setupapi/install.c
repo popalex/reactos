@@ -24,6 +24,9 @@
 #include <winsvc.h>
 #include <ndk/cmfuncs.h>
 
+/* Maximum OEM index for oem*.inf generated filenames by SetupCopyOEMInfW */
+#define OEM_INDEX_LIMIT 99999
+
 /* Unicode constants */
 static const WCHAR BackSlash[] = {'\\',0};
 static const WCHAR GroupOrderListKey[] = {'S','Y','S','T','E','M','\\','C','u','r','r','e','n','t','C','o','n','t','r','o','l','S','e','t','\\','C','o','n','t','r','o','l','\\','G','r','o','u','p','O','r','d','e','r','L','i','s','t',0};
@@ -2496,7 +2499,7 @@ BOOL WINAPI SetupCopyOEMInfW(
             {
                 DWORD CurrentNumber;
                 if (swscanf(FindFileData.cFileName, OemFileSpecification, &CurrentNumber) == 1
-                    && CurrentNumber <= 99999)
+                    && CurrentNumber <= OEM_INDEX_LIMIT)
                 {
                     if (CurrentNumber >= NextFreeNumber)
                         NextFreeNumber = CurrentNumber + 1;
@@ -2504,7 +2507,7 @@ BOOL WINAPI SetupCopyOEMInfW(
             } while (FindNextFileW(hSearch, &FindFileData));
         }
 
-        if (NextFreeNumber > 99999)
+        if (NextFreeNumber > OEM_INDEX_LIMIT)
         {
             ERR("Too much custom .inf files\n");
             SetLastError(ERROR_GEN_FAILURE);
