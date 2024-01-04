@@ -1389,6 +1389,8 @@ BOOL WINAPI SetupInstallFromInfSectionW( HWND owner, HINF hinf, PCWSTR section, 
 {
     BOOL ret;
     int i;
+
+#ifdef __REACTOS__
     struct needs_callback_info needs_info;
 
     /* Parse 'Include' and 'Needs' directives */
@@ -1404,6 +1406,7 @@ BOOL WINAPI SetupInstallFromInfSectionW( HWND owner, HINF hinf, PCWSTR section, 
     needs_info.devinfo = devinfo;
     needs_info.devinfo_data = devinfo_data;
     iterate_section_fields( hinf, section, Needs, needs_callback, &needs_info);
+#endif
 
     if (flags & SPINST_FILES)
     {
