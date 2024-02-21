@@ -158,10 +158,6 @@ MoreOptDlgProc(
 }
 
 
-#define PARTITION_SIZE_INPUT_FIELD_LENGTH 9
-/* Restriction for MaxSize */
-#define PARTITION_MAXSIZE (pow(10, (PARTITION_SIZE_INPUT_FIELD_LENGTH - 1)) - 1)
-
 typedef struct _PARTCREATE_CTX
 {
     PARTINFO PartInfo; // A copy of the info stored in the TreeList
@@ -189,11 +185,11 @@ PartitionDlgProc(
         {
             PPARTENTRY PartEntry;
             PDISKENTRY DiskEntry;
+            ULONG MaxSizeMB;
             ULONG Index = 0;
             PCWSTR FileSystemName;
             INT nSel;
             PCWSTR DefaultFs;
-            ULONG MaxSizeMB;
 
             /* Save dialog context pointer */
             PartCreateCtx = (PPARTCREATE_CTX)lParam;
@@ -203,11 +199,8 @@ PartitionDlgProc(
             PartEntry = PartCreateCtx->PartInfo.PartEntry;
             DiskEntry = PartEntry->DiskEntry;
 
-            /* Set the maximum size the partition can have */
-            MaxSizeMB = GetPartEntrySizeInBytes(PartEntry) / MB;  /* in MBytes (rounded) */
-            MaxSizeMB = min(MaxSizeMB, PARTITION_MAXSIZE);
-            PartCreateCtx->MaxSizeMB = MaxSizeMB;
-
+            /* Set the spinner to the maximum size in MB the partition can have */
+            MaxSizeMB = PartCreateCtx->MaxSizeMB;
             SendDlgItemMessageW(hDlg, IDC_UPDOWN_PARTSIZE, UDM_SETRANGE32, (WPARAM)1, (LPARAM)MaxSizeMB);
             SendDlgItemMessageW(hDlg, IDC_UPDOWN_PARTSIZE, UDM_SETPOS32, 0, (LPARAM)MaxSizeMB);
             // SetDlgItemInt(hDlg, IDC_EDIT_PARTSIZE, MaxSizeMB, FALSE);
@@ -328,6 +321,7 @@ PartitionDlgProc(
                 // PartCreateCtx->PartSizeMB = GetDlgItemInt(hDlg, IDC_EDIT_PARTSIZE, NULL, FALSE);
                 PartCreateCtx->PartSizeMB = (ULONG)SendDlgItemMessageW(hDlg, IDC_UPDOWN_PARTSIZE, UDM_SETPOS32, 0, (LPARAM)NULL);
                 PartCreateCtx->PartSizeMB = min(max(PartCreateCtx->PartSizeMB, 1), PartCreateCtx->MaxSizeMB);
+                // TODO: Error message if value is not >= 1 and <= MaxSizeMB ?
 
                 PartCreateCtx->MBRExtPart = (IsDlgButtonChecked(hDlg, IDC_CHECK_MBREXTPART) == BST_CHECKED);
 
@@ -1179,9 +1173,11 @@ DriveDlgProc(
                 {
                     INT_PTR ret;
                     HTLITEM hItem;
+                    ULONGLONG MaxPartSize;
+                    ULONG MaxSizeMB;
                     PPARTINFO PartInfo;
                     PPARTENTRY PartEntry;
-                    PARTCREATE_CTX PartCreateCtx;
+                    PARTCREATE_CTX PartCreateCtx = {0};
 
                     hList = GetDlgItem(hwndDlg, IDC_PARTITION);
 
@@ -1197,7 +1193,11 @@ DriveDlgProc(
 
                     /* Make a copy of the info stored in the TreeList */
                     PartCreateCtx.PartInfo = *PartInfo;
-                    PartCreateCtx.MaxSizeMB = 0;
+
+                    /* Retrieve the maximum size in MB (rounded up) the partition can have */
+                    MaxPartSize = GetPartEntrySizeInBytes(PartEntry);
+                    MaxSizeMB = (ULONG)RoundingDivide(MaxPartSize, MB);
+                    PartCreateCtx.MaxSizeMB = MaxSizeMB;
 
                     ret = DialogBoxParamW(pSetupData->hInstance,
                                           MAKEINTRESOURCEW(IDD_PARTITION),
@@ -1214,9 +1214,19 @@ DriveDlgProc(
                         ULONGLONG PartSize;
                         PPARTENTRY NextPart;
 
-                        /* Convert to bytes */
+                        /*
+                         * If the input size, given in MB, specifies the maximum partition
+                         * size, it may slightly under- or over-estimate it due to rounding
+                         * error. In this case, use all of the unpartitioned disk space.
+                         * Otherwise, directly convert the size to bytes.
+                         */
                         PartSize = PartCreateCtx.PartSizeMB;
-                        PartSize *= MB;
+                        if (PartSize == MaxSizeMB)
+                            PartSize = MaxPartSize;
+                        else // if (PartSize < MaxSizeMB)
+                            PartSize *= MB;
+
+                        ASSERT(PartSize <= MaxPartSize);
 
                         if (!PartCreateCtx.MBRExtPart)
                         {
