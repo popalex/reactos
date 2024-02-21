@@ -45,6 +45,9 @@
 #include <commctrl.h>
 #include <windowsx.h>
 
+#define EnableDlgItem(hDlg, nID, bEnable)   \
+    EnableWindow(GetDlgItem((hDlg), (nID)), (bEnable))
+
 /* These are public names and values determined from MFC, and compatible with Windows */
 // Property Sheet control id's (determined with Spy++)
 #define IDC_TAB_CONTROL                 0x3020
@@ -69,14 +72,18 @@
 // #include <reactos/rosioctl.h>
 #include <../lib/setuplib.h>
 
-#if 0
-typedef struct _KBLAYOUT
+
+/* UI elements */
+typedef struct _UI_CONTEXT
 {
-    TCHAR LayoutId[9];
-    TCHAR LayoutName[128];
-    TCHAR DllName[128];
-} KBLAYOUT, *PKBLAYOUT;
-#endif
+    HWND hPartList; // Disks & partitions list
+    HWND hwndDlg;   // Install progress page
+    HWND hWndItem;  // Progress action
+    HWND hWndProgress;  // Progress gauge
+    LONG_PTR dwPbStyle; // Progress gauge style
+} UI_CONTEXT, *PUI_CONTEXT;
+
+extern UI_CONTEXT UiContext;
 
 
 /*
@@ -107,6 +114,15 @@ typedef struct _NT_WIN32_PATH_MAPPING_LIST
     ULONG MappingsCount;
 } NT_WIN32_PATH_MAPPING_LIST, *PNT_WIN32_PATH_MAPPING_LIST;
 
+
+#if 0
+typedef struct _KBLAYOUT
+{
+    TCHAR LayoutId[9];
+    TCHAR LayoutName[128];
+    TCHAR DllName[128];
+} KBLAYOUT, *PKBLAYOUT;
+#endif
 
 typedef struct _SETUPDATA
 {
@@ -155,6 +171,28 @@ extern BOOLEAN IsUnattendedSetup;
 
 extern SETUPDATA SetupData;
 
+extern PPARTENTRY InstallPartition;
+extern PPARTENTRY SystemPartition;
+
+/**
+ * @brief   Data structure stored for the partition entries in the TreeList.
+ **/
+typedef struct _PARTINFO
+{
+    PPARTENTRY PartEntry;
+
+    /* Volume-related parameters:
+     * Cached input information that will be set to the
+     * FORMAT_PARTITION_INFO structure given to the
+     * 'FSVOLNOTIFY_STARTFORMAT' step */
+    // PCWSTR FileSystemName;
+    WCHAR FileSystemName[MAX_PATH+1];
+    FMIFS_MEDIA_FLAG MediaFlag;
+    PCWSTR Label;
+    BOOLEAN QuickFormat;
+    ULONG ClusterSize;
+} PARTINFO, *PPARTINFO;
+
 
 /*
  * Attempts to convert a pure NT file path into a corresponding Win32 path.
@@ -170,6 +208,17 @@ ConvertNtPathToWin32Path(
 
 /* drivepage.c */
 
+INT_PTR
+CALLBACK
+DriveDlgProc(
+    _In_ HWND hwndDlg,
+    _In_ UINT uMsg,
+    _In_ WPARAM wParam,
+    _In_ LPARAM lParam);
+
+
+/* reactos.c */
+
 BOOL
 CreateListViewColumns(
     IN HINSTANCE hInstance,
@@ -179,14 +228,21 @@ CreateListViewColumns(
     IN const INT* pColsAlign,
     IN UINT nNumOfColumns);
 
-INT_PTR
-CALLBACK
-DriveDlgProc(
-    HWND hwndDlg,
-    UINT uMsg,
-    WPARAM wParam,
-    LPARAM lParam);
+INT
+DisplayMessage(
+    _In_opt_ HWND hParentWnd,
+    _In_ UINT uType,
+    _In_opt_ LPCWSTR pszTitle,
+    _In_ LPCWSTR pszFormatMessage,
+    ...);
+
+INT
+DisplayError(
+    _In_opt_ HWND hParentWnd,
+    _In_ UINT uIDTitle,
+    _In_ UINT uIDMessage);
+
 
 #endif /* _REACTOS_PCH_ */
 
-/* EOP */
+/* EOF */
