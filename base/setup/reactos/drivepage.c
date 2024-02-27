@@ -1537,7 +1537,7 @@ DisableWizNext:
                                     MB_YESNO | MB_ICONQUESTION) == IDYES)
                     {
                         /* Go to the Terminate page */
-                        PropSheet_SetCurSelByID(GetParent(hwndDlg), IDD_RESTARTPAGE);
+                        PropSheet_SetCurSelByID(GetParent(hwndDlg), IDD_FINISHPAGE);
                     }
 
                     /* Do not close the wizard too soon */

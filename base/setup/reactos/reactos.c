@@ -290,7 +290,7 @@ TypeDlgProc(
                                     MB_YESNO | MB_ICONQUESTION) == IDYES)
                     {
                         /* Go to the Terminate page */
-                        PropSheet_SetCurSelByID(GetParent(hwndDlg), IDD_RESTARTPAGE);
+                        PropSheet_SetCurSelByID(GetParent(hwndDlg), IDD_FINISHPAGE);
                     }
 
                     /* Do not close the wizard too soon */
@@ -730,7 +730,7 @@ UpgradeRepairDlgProc(
                                     MB_YESNO | MB_ICONQUESTION) == IDYES)
                     {
                         /* Go to the Terminate page */
-                        PropSheet_SetCurSelByID(GetParent(hwndDlg), IDD_RESTARTPAGE);
+                        PropSheet_SetCurSelByID(GetParent(hwndDlg), IDD_FINISHPAGE);
                     }
 
                     /* Do not close the wizard too soon */
@@ -839,7 +839,7 @@ DeviceDlgProc(
                                     MB_YESNO | MB_ICONQUESTION) == IDYES)
                     {
                         /* Go to the Terminate page */
-                        PropSheet_SetCurSelByID(GetParent(hwndDlg), IDD_RESTARTPAGE);
+                        PropSheet_SetCurSelByID(GetParent(hwndDlg), IDD_FINISHPAGE);
                     }
 
                     /* Do not close the wizard too soon */
@@ -925,6 +925,7 @@ SummaryDlgProc(
             {
                 case PSN_SETACTIVE:
                 {
+                    WCHAR szResText[256];
                     WCHAR CurrentItemText[256];
 
                     ASSERT(InstallPartition);
@@ -1003,7 +1004,11 @@ SummaryDlgProc(
                     // PropSheet_SetNextText(GetParent(hwndDlg), ...);
                     GetDlgItemTextW(GetParent(hwndDlg), ID_WIZNEXT,
                                     szOrgWizNextBtnText, ARRAYSIZE(szOrgWizNextBtnText));
-                    SetDlgItemTextW(GetParent(hwndDlg), ID_WIZNEXT, L"Install"); // FIXME: Localize!
+
+                    if (!LoadStringW(pSetupData->hInstance, IDS_INSTALLBTN, szResText, _countof(szResText)))
+                        StringCchCopyW(szResText, _countof(szResText), L"Install");
+
+                    SetDlgItemTextW(GetParent(hwndDlg), ID_WIZNEXT, szResText);
 
                     /*
                      * Keep the "Next" button disabled. It will be enabled only
@@ -1036,7 +1041,7 @@ SummaryDlgProc(
                                     MB_YESNO | MB_ICONQUESTION) == IDYES)
                     {
                         /* Go to the Terminate page */
-                        PropSheet_SetCurSelByID(GetParent(hwndDlg), IDD_RESTARTPAGE);
+                        PropSheet_SetCurSelByID(GetParent(hwndDlg), IDD_FINISHPAGE);
                     }
 
                     /* Do not close the wizard too soon */
@@ -2059,7 +2064,7 @@ PrepareAndDoCopyThread(
 
 
     /* We are done! Switch to the Terminate page */
-    PropSheet_SetCurSelByID(GetParent(hwndDlg), IDD_RESTARTPAGE);
+    PropSheet_SetCurSelByID(GetParent(hwndDlg), IDD_FINISHPAGE);
     return 0;
 }
 
@@ -2156,7 +2161,7 @@ ProcessDlgProc(
                         // TODO: Unwind installation?!
 
                         /* Go to the Terminate page */
-                        PropSheet_SetCurSelByID(GetParent(hwndDlg), IDD_RESTARTPAGE);
+                        PropSheet_SetCurSelByID(GetParent(hwndDlg), IDD_FINISHPAGE);
                     }
                     else
                     {
@@ -2183,8 +2188,44 @@ ProcessDlgProc(
     return FALSE;
 }
 
+
+static DWORD
+GetSetupType(VOID)
+{
+    HKEY hKey;
+    DWORD dwError;
+    DWORD dwType;
+    DWORD dwSize;
+    DWORD dwSetupType;
+
+    /* Open key */
+    dwError = RegOpenKeyExW(HKEY_LOCAL_MACHINE,
+                            L"SYSTEM\\Setup",
+                            0,
+                            KEY_QUERY_VALUE,
+                            &hKey);
+    if (dwError != ERROR_SUCCESS)
+        return 0;
+
+    /* Read key */
+    dwSize = sizeof(DWORD);
+    dwError = RegQueryValueExW(hKey,
+                               L"SetupType",
+                               NULL,
+                               &dwType,
+                               (LPBYTE)&dwSetupType,
+                               &dwSize);
+
+    /* Close key, and check if returned values are correct */
+    RegCloseKey(hKey);
+    if (dwError != ERROR_SUCCESS || dwType != REG_DWORD || dwSize != sizeof(DWORD))
+        return 0;
+
+    return dwSetupType;
+}
+
 static INT_PTR CALLBACK
-RestartDlgProc(
+FinishDlgProc(
     IN HWND hwndDlg,
     IN UINT uMsg,
     IN WPARAM wParam,
@@ -2198,6 +2239,7 @@ RestartDlgProc(
     switch (uMsg)
     {
         case WM_INITDIALOG:
+        {
             /* Save pointer to the global setup data */
             pSetupData = (PSETUPDATA)((LPPROPSHEETPAGE)lParam)->lParam;
             SetWindowLongPtrW(hwndDlg, GWLP_USERDATA, (DWORD_PTR)pSetupData);
@@ -2208,7 +2250,44 @@ RestartDlgProc(
                                WM_SETFONT,
                                (WPARAM)pSetupData->hTitleFont,
                                (LPARAM)TRUE);
+
+#if 1 // FIXME FIXME: This is for testing only!!
+            SetDlgItemTextW(GetParent(hwndDlg), ID_WIZNEXT, L"Test button");
+#endif
+
+            /* Retrieve the HKLM\SYSTEM\Setup:SetupType value to determine
+             * whether we need to restart at the end of the installation */
+            //pSetupData->dwSetupType = GetSetupType();
+            pSetupData->dwSetupType = 1;
+
+            if (pSetupData->dwSetupType == 1 || pSetupData->dwSetupType == 4) // FIXME: Use defines/enum
+            {
+                EnableDlgItem(hwndDlg, IDC_RESTART_PROGRESS, TRUE);
+                EnableDlgItem(hwndDlg, IDC_PAUSE_COUNTDOWN, TRUE);
+                EnableDlgItem(hwndDlg, IDC_RESTARTNOW, FALSE);
+                ShowWindow(GetDlgItem(hwndDlg, IDC_RESTART_PROGRESS), SW_SHOW);
+                ShowWindow(GetDlgItem(hwndDlg, IDC_PAUSE_COUNTDOWN), SW_SHOW);
+                ShowWindow(GetDlgItem(hwndDlg, IDC_RESTARTNOW), SW_HIDE);
+
+                CheckDlgButton(hwndDlg, IDC_PAUSE_COUNTDOWN, BST_UNCHECKED);
+            }
+            else
+            {
+                /* If we should not restart, change the finish text */
+                WCHAR szResText[512];
+                if (LoadStringW(pSetupData->hInstance, IDS_FINISH_NO_REBOOT, szResText, _countof(szResText)))
+                    SetDlgItemTextW(hwndDlg, IDC_FINISHTEXT, szResText);
+
+                EnableDlgItem(hwndDlg, IDC_RESTART_PROGRESS, FALSE);
+                EnableDlgItem(hwndDlg, IDC_PAUSE_COUNTDOWN, FALSE);
+                EnableDlgItem(hwndDlg, IDC_RESTARTNOW, TRUE);
+                ShowWindow(GetDlgItem(hwndDlg, IDC_RESTART_PROGRESS), SW_HIDE);
+                ShowWindow(GetDlgItem(hwndDlg, IDC_PAUSE_COUNTDOWN), SW_HIDE);
+                ShowWindow(GetDlgItem(hwndDlg, IDC_RESTARTNOW), SW_SHOW);
+            }
+
             break;
+        }
 
         case WM_TIMER:
         {
@@ -2244,22 +2323,67 @@ RestartDlgProc(
                     ShowWindow(GetDlgItem(GetParent(hwndDlg), IDCANCEL), SW_HIDE);
                     PropSheet_SetWizButtons(GetParent(hwndDlg), PSWIZB_FINISH);
 
-                    /* Set up the reboot progress bar */
-                    SendDlgItemMessage(hwndDlg, IDC_RESTART_PROGRESS, PBM_SETRANGE, 0, MAKELPARAM(0, 300));
-                    SendDlgItemMessage(hwndDlg, IDC_RESTART_PROGRESS, PBM_SETPOS, 0, 0);
-                    SetTimer(hwndDlg, 1, 50, NULL);
+                    // NOTE: Alternative buttons suggestion:
+                    // "Back" (disabled/hidden), "Restart Now" (instead of "Finish"), Cancel/Exit
+
+                    if (pSetupData->dwSetupType == 1 || pSetupData->dwSetupType == 4) // FIXME: Use defines/enum
+                    {
+                        /* Change the "Next" button text to "Restart" */
+                        // PropSheet_SetNextText(GetParent(hwndDlg), ...);
+                        WCHAR szResText[64];
+                        if (!LoadStringW(pSetupData->hInstance, IDS_REBOOTBTN, szResText, _countof(szResText)))
+                            StringCchCopyW(szResText, _countof(szResText), L"Restart");
+                        SetDlgItemTextW(GetParent(hwndDlg), ID_WIZFINISH, szResText);
+
+                        /* Set up the reboot progress bar and countdown timer.
+                         * 300 steps at 50 ms each: 15 seconds */
+                        SendDlgItemMessage(hwndDlg, IDC_RESTART_PROGRESS, PBM_SETRANGE, 0, MAKELPARAM(0, 300));
+                        SendDlgItemMessage(hwndDlg, IDC_RESTART_PROGRESS, PBM_SETPOS, 0, 0);
+                        SetTimer(hwndDlg, 1, 50, NULL);
+                    }
+
                     break;
                 }
 
                 default:
                     break;
             }
+            break;
         }
-        break;
+
+        case WM_COMMAND:
+        {
+            if (HIWORD(wParam) != BN_CLICKED)
+                break;
+
+            switch (LOWORD(wParam))
+            {
+            case IDC_PAUSE_COUNTDOWN:
+            {
+                /* Pause the shutdown countdown */
+                // BST_UNCHECKED or BST_INDETERMINATE => FALSE
+                if (IsDlgButtonChecked(hwndDlg, IDC_PAUSE_COUNTDOWN) == BST_CHECKED)
+                {
+                    /* It is, pause countdown */
+                    KillTimer(hwndDlg, 1);
+                }
+                else
+                {
+                    /* It is not, re-enable countdown */
+                    SetTimer(hwndDlg, 1, 50, NULL);
+                }
+                break;
+            }
+
+            case IDC_RESTARTNOW:
+                // TODO
+                break;
+            }
+            break;
+        }
 
         default:
             break;
-
     }
 
     return FALSE;
@@ -2810,6 +2934,7 @@ _tWinMain(HINSTANCE hInst,
         psp.pszTemplate = MAKEINTRESOURCEW(IDD_STARTPAGE);
         ahpsp[nPages++] = CreatePropertySheetPage(&psp);
 
+#if 0
         /* Create the install type selection page */
         psp.dwSize = sizeof(PROPSHEETPAGE);
         psp.dwFlags = PSP_DEFAULT | PSP_USEHEADERTITLE | PSP_USEHEADERSUBTITLE;
@@ -2864,8 +2989,10 @@ _tWinMain(HINSTANCE hInst,
         psp.pfnDlgProc = SummaryDlgProc;
         psp.pszTemplate = MAKEINTRESOURCEW(IDD_SUMMARYPAGE);
         ahpsp[nPages++] = CreatePropertySheetPage(&psp);
+#endif
     }
 
+#if 0
     /* Create the installation progress page */
     psp.dwSize = sizeof(PROPSHEETPAGE);
     psp.dwFlags = PSP_DEFAULT | PSP_USEHEADERTITLE | PSP_USEHEADERSUBTITLE;
@@ -2876,14 +3003,15 @@ _tWinMain(HINSTANCE hInst,
     psp.pfnDlgProc = ProcessDlgProc;
     psp.pszTemplate = MAKEINTRESOURCEW(IDD_PROCESSPAGE);
     ahpsp[nPages++] = CreatePropertySheetPage(&psp);
+#endif
 
-    /* Create the finish-and-reboot page */
+    /* Create the finish page */
     psp.dwSize = sizeof(PROPSHEETPAGE);
     psp.dwFlags = PSP_DEFAULT | PSP_HIDEHEADER;
     psp.hInstance = hInst;
     psp.lParam = (LPARAM)&SetupData;
-    psp.pfnDlgProc = RestartDlgProc;
-    psp.pszTemplate = MAKEINTRESOURCEW(IDD_RESTARTPAGE);
+    psp.pfnDlgProc = FinishDlgProc;
+    psp.pszTemplate = MAKEINTRESOURCEW(IDD_FINISHPAGE);
     ahpsp[nPages++] = CreatePropertySheetPage(&psp);
 
     /* Create the property sheet */
@@ -2927,12 +3055,7 @@ Quit:
     /* Free the NT to Win32 path prefix mapping list */
     FreeNtToWin32PathMappingList(&SetupData.MappingList);
 
-#if 1 // NOTE 2: Reenabled for live-testing! // NOTE: Disabled for testing purposes only!
-    EnablePrivilege(SE_SHUTDOWN_NAME, TRUE);
-    ExitWindowsEx(EWX_REBOOT, 0);
-    EnablePrivilege(SE_SHUTDOWN_NAME, FALSE);
-#endif
-
+    /* System rebooting will be done by Winlogon if necessary */
     return 0;
 }
 
