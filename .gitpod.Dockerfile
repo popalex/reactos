@@ -6,7 +6,7 @@ RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-ke
 
 RUN sudo apt-get -q update && \
     sudo apt-get -yq upgrade && \
-    sudo apt-get -yq install qemu-system-x86 qemu-utils gdb-mingw-w64 texinfo python-is-python3 && \
+    sudo apt-get -yq install qemu-system-x86 qemu-utils gdb-mingw-w64 && \
     sudo rm -rf /var/lib/apt/lists/*
 
 #RUN wget https://sourceforge.net/projects/reactos/files/RosBE-Unix/2.2.1/RosBE-Unix-2.2.1.tar.bz2/download?use_mirror=unlimited -O RosBE-Unix.tar.bz2 && \
