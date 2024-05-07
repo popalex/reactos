@@ -1,6 +1,6 @@
 tasks:
   - before: > 
-      brew install cmake ninja
+      brew install cmake ninja bison flex
     init: >
       mkdir -p /workspace/reactos/build &&
       cd /workspace/reactos/build &&
