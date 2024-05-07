@@ -13,7 +13,7 @@ RUN sudo apt-get -q update && \
 
 RUN wget https://sourceforge.net/projects/reactos/files/RosBE-Unix/2.2.1/RosBE-Unix-2.2.1.tar.bz2/download?use_mirror=unlimited -O RosBE-Unix.tar.bz2 && \
     sudo tar -xvf RosBE-Unix.tar.bz2 -C /usr/local --one-top-level=RosBE --strip-components 1 && \
-    rm -f RosBEBinFull.tar.gz
+    rm -f RosBE-Unix.tar.bz2
 
 RUN echo 'export PATH=/usr/local/RosBE/i386/bin:$PATH' >> /home/gitpod/.profile
 
