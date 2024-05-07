@@ -11,5 +11,5 @@ modules/[Aa][Hh][Kk]_[Tt]ests
 .DS_Store
 .project
 .settings
-.vscode
+build
 sdk/tools/winesync/winesync.cfg
