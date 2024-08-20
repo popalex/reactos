@@ -18,7 +18,7 @@ if(DBG)
 endif()
 
 list(APPEND SOURCE
-    brsfolder.cpp
+    brfolder.cpp
     CActiveDesktop.cpp
     CActiveDesktop.h
     CIDLDataObj.cpp
@@ -65,6 +65,7 @@ list(APPEND SOURCE
     shlfolder.cpp
     CFileSysBindData.cpp
     CDefView.cpp
+    CDefViewUtil.cpp
     CDefViewDual.cpp
     CDefViewBckgrndMenu.cpp
     stubs.cpp

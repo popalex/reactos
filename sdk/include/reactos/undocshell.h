@@ -58,6 +58,7 @@ typedef struct _TRAYNOTIFYDATAW
  * ProgMan messages
  */
 #define WM_PROGMAN_OPENSHELLSETTINGS (WM_USER + 22) /* wParam specifies the dialog (and tab page) */
+#define WM_PROGMAN_SAVESTATE         (WM_USER + 77)
 
 /****************************************************************************
  *  IDList Functions
@@ -91,6 +92,23 @@ HRESULT WINAPI SHILCreateFromPathW (
     LPCWSTR path,
     LPITEMIDLIST * ppidl,
     DWORD *attributes);
+
+HRESULT WINAPI SHInvokeCommand(
+    HWND hWnd,
+    IShellFolder* lpFolder,
+    LPCITEMIDLIST lpApidl,
+    LPCSTR lpVerb);
+HRESULT WINAPI SHInvokeCommandOnContextMenu(
+    _In_opt_ HWND hWnd,
+    _In_opt_ IUnknown* pUnk,
+    _In_ IContextMenu* pCM,
+    _In_ UINT fCMIC,
+    _In_opt_ LPCSTR pszVerb);
+BOOL WINAPI IContextMenu_Invoke(
+    _In_ IContextMenu *pContextMenu,
+    _In_ HWND hwnd,
+    _In_ LPCSTR lpVerb,
+    _In_ UINT uFlags);
 
 /*
     string functions
@@ -534,6 +552,19 @@ BOOL WINAPI PathIsTemporaryW(_In_ LPCWSTR Str);
 #define DE_SRC_IS_CDRECORD  0x88
 // #define DE_ERROR_MAX
 #define ERRORONDEST         0x10000
+
+/****************************************************************************
+ * Shell settings
+ */
+
+typedef struct _REGSHELLSTATE
+{
+    DWORD dwSize;
+    SHELLSTATE ss;
+} REGSHELLSTATE, *PREGSHELLSTATE;
+#define REGSHELLSTATE_SIZE 0x24
+#define REGSHELLSTATE_VERSION 0xD
+C_ASSERT(sizeof(REGSHELLSTATE) == REGSHELLSTATE_SIZE);
 
 /****************************************************************************
  * Shell Namespace Routines

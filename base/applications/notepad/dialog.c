@@ -343,6 +343,7 @@ VOID DoOpenFile(LPCTSTR szFileName)
         return;
 
     WaitCursor(TRUE);
+    SetWindowText(Globals.hEdit, NULL);
 
     hFile = CreateFile(szFileName, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
                        OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
@@ -820,7 +821,7 @@ VOID DIALOG_SearchNext(BOOL bDown)
     else
         Globals.find.Flags &= ~FR_DOWN;
 
-    if (Globals.find.lpstrFindWhat != NULL)
+    if (Globals.find.lpstrFindWhat != NULL && *Globals.find.lpstrFindWhat)
         NOTEPAD_FindNext(&Globals.find, FALSE, TRUE);
     else
         DIALOG_Search();
